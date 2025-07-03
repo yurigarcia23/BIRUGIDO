@@ -495,7 +495,14 @@
             // --- Configuração do Supabase ---
             const SUPABASE_URL = 'https://kzifhgwkempjspkpivcv.supabase.co';
             const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6aWZoZ3drZW1wanNwa3BpdmN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NzQyNjgsImV4cCI6MjA2NzE1MDI2OH0.gslDDewuTt61BLG4GaX7UinE1UJm3ePBavm95KB4he0';
-            const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            
+            // CORREÇÃO: Garante que o objeto 'supabase' do CDN foi carregado antes de usá-lo.
+            if (!window.supabase) {
+                alert("Erro: A biblioteca do Supabase não pôde ser carregada. Verifique sua conexão com a internet.");
+                return;
+            }
+            const { createClient } = window.supabase;
+            const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
             // --- Variável Global de Dados ---
             let activities = [];
@@ -897,6 +904,17 @@
 
             // --- Renderização Inicial ---
             async function initializeApp() {
+                navLinks.forEach(link => {
+                    link.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        navLinks.forEach(l => l.classList.remove('active'));
+                        contentSections.forEach(s => s.classList.remove('active'));
+                        const targetId = link.getAttribute('data-target');
+                        document.getElementById(targetId).classList.add('active');
+                        link.classList.add('active');
+                    });
+                });
+                
                 createLancamentoBlock();
                 await fetchActivities();
                 handleDatePresetChange();
