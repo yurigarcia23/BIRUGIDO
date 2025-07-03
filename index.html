@@ -496,7 +496,6 @@
             const SUPABASE_URL = 'https://kzifhgwkempjspkpivcv.supabase.co';
             const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6aWZoZ3drZW1wanNwa3BpdmN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NzQyNjgsImV4cCI6MjA2NzE1MDI2OH0.gslDDewuTt61BLG4GaX7UinE1UJm3ePBavm95KB4he0';
             
-            // CORREÇÃO: Garante que o objeto 'supabase' do CDN foi carregado antes de usá-lo.
             if (!window.supabase) {
                 alert("Erro: A biblioteca do Supabase não pôde ser carregada. Verifique sua conexão com a internet.");
                 return;
@@ -618,7 +617,7 @@
                 const endDate = endDateFilter.value ? new Date(endDateFilter.value + 'T23:59:59') : null;
 
                 return activities.filter(act => {
-                    const activityDate = new Date(act.date);
+                    const activityDate = new Date(act.date + 'T00:00:00'); // CORREÇÃO: Trata a data como local
                     const userMatch = selectedUser === 'all' || act.closer === selectedUser;
                     const channelMatch = selectedChannel === 'all' || act.channel === selectedChannel;
                     const startDateMatch = !startDate || activityDate >= startDate;
