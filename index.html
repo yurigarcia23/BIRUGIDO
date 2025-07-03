@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BI Grupo Rugido</title>
+    <!-- Adiciona a biblioteca do cliente Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
 
@@ -488,20 +490,19 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             
-            const navLinks = document.querySelectorAll('.nav-link');
-            const contentSections = document.querySelectorAll('.content-section');
-            navLinks.forEach(link => {link.addEventListener('click', (e) => {e.preventDefault();navLinks.forEach(l=>l.classList.remove('active'));contentSections.forEach(s=>s.classList.remove('active'));const targetId=link.getAttribute('data-target');document.getElementById(targetId).classList.add('active');link.classList.add('active');});});
+            // --- Configuração do Supabase ---
+            const SUPABASE_URL = 'https://kzifhgwkempjspkpivcv.supabase.co';
+            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6aWZoZ3drZW1wanNwa3BpdmN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NzQyNjgsImV4cCI6MjA2NzE1MDI2OH0.gslDDewuTt61BLG4GaX7UinE1UJm3ePBavm95KB4he0';
+            const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            let activities = [
-                { id: 1, date: '2025-07-03', closer: 'Yuri Garcia', lead: 'Sys-Tech', channel: 'Outbound', type: 'R1', status: 'Reunião Realizada', evolution: 'De R1 para R2', saleValue: null, notes: 'Cliente demonstrou muito interesse.', qualification: 'Qualificado', companyRevenue: '500k+', proposalSent: 'Sim', proposalValue: 15000 },
-                { id: 2, date: '2025-07-03', closer: 'Pedro Costa', lead: 'Inova Soluções', channel: 'Webinar', type: 'R3', status: 'Venda Ganhada', evolution: '', saleValue: 12300, notes: 'Contrato assinado.', qualification: 'Qualificado', companyRevenue: '500k+', proposalSent: 'Sim', proposalValue: 12300 },
-                { id: 3, date: '2025-07-02', closer: 'Yuri Garcia', lead: 'Data Prime', channel: 'Inbound', type: 'R2', status: 'Venda Ganhada', evolution: '', saleValue: 9800, notes: '', qualification: 'Qualificado', companyRevenue: '300k a 500k', proposalSent: 'Sim', proposalValue: 10000 },
-                { id: 4, date: '2025-06-15', closer: 'Pedro Costa', lead: 'WebLink', channel: 'Outbound', type: 'R1', status: 'Venda Perdida', evolution: '', saleValue: null, notes: 'Optou por concorrente.', qualification: 'Não Qualificado', companyRevenue: '50k a 100k', proposalSent: 'Não', proposalValue: null },
-            ];
+            // --- Variável Global de Dados ---
+            let activities = [];
 
             // --- Elementos do DOM ---
+            const navLinks = document.querySelectorAll('.nav-link');
+            const contentSections = document.querySelectorAll('.content-section');
             const historyContainer = document.getElementById('history-table-container');
             const form = document.getElementById('activity-form');
             const lancamentosContainer = document.getElementById('lancamentos-container');
@@ -588,8 +589,21 @@
                 }
             });
 
-            // --- Lógica de Filtros e Atualização ---
+            // --- Lógica de Dados e Filtros ---
             
+            async function fetchActivities() {
+                const { data, error } = await supabaseClient.from('activities').select('*');
+                if (error) {
+                    console.error('Erro ao buscar atividades:', error);
+                    alert('Não foi possível carregar os dados do banco.');
+                    return;
+                }
+                activities = data;
+                updateAllData();
+                renderTable();
+                populateUserFilter();
+            }
+
             const filterActivities = () => {
                 const selectedUser = userFilter.value;
                 const selectedChannel = channelFilterDash.value;
@@ -612,7 +626,6 @@
                 updateRanking(filteredData);
                 updatePipelineWidgets(filteredData);
                 updateChannelMetrics(filteredData);
-                renderTable(); // A tabela sempre mostra todos os dados, mas os filtros dela se aplicam
             };
 
             const updateDashboard = (data) => {
@@ -741,7 +754,7 @@
                         </table>
                     `;
                     // Populate filter dropdowns
-                    const getUniqueOptions = (key) => ['Todos', ...new Set(activities.map(act => act[key]))];
+                    const getUniqueOptions = (key) => ['Todos', ...new Set(activities.map(act => act[key]).filter(Boolean))];
                     
                     const closerFilter = document.querySelector('.table-filters [data-key="closer"]');
                     getUniqueOptions('closer').forEach(opt => closerFilter.innerHTML += `<option>${opt}</option>`);
@@ -779,14 +792,15 @@
                 });
             };
             
-            form.addEventListener('submit', (e) => {
+            form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const headerData = { date: document.getElementById('date-form').value, closer: document.getElementById('closer-name-form').value };
                 const lancamentoBlocks = document.querySelectorAll('.lancamento-block');
-                const newActivities = [];
+                const newActivitiesPayload = [];
+                
                 lancamentoBlocks.forEach(block => {
                     const blockId = block.id;
-                    const newActivity = { ...headerData, id: Date.now() + Math.random(), 
+                    const newActivity = { ...headerData, 
                         lead: document.getElementById(`lead-name-${blockId}`).value, 
                         channel: document.getElementById(`channel-${blockId}`).value, 
                         type: document.getElementById(`activity-type-${blockId}`).value, 
@@ -799,16 +813,22 @@
                         companyRevenue: document.getElementById(`revenue-${blockId}`).value,
                         proposalSent: document.getElementById(`proposal-sent-${blockId}`).value,
                     };
-                    if(newActivity.lead) newActivities.push(newActivity);
+                    if(newActivity.lead) newActivitiesPayload.push(newActivity);
                 });
-                if (newActivities.length === 0) { alert('Adicione e preencha pelo menos um lançamento antes de salvar.'); return; }
-                activities.unshift(...newActivities);
-                alert(`${newActivities.length} lançamento(s) salvo(s) com sucesso!`);
-                lancamentosContainer.innerHTML = '';
-                createLancamentoBlock();
-                renderTable();
-                populateUserFilter();
-                updateAllData();
+
+                if (newActivitiesPayload.length === 0) { alert('Adicione e preencha pelo menos um lançamento antes de salvar.'); return; }
+                
+                const { error } = await supabaseClient.from('activities').insert(newActivitiesPayload);
+
+                if (error) {
+                    console.error('Erro ao salvar:', error);
+                    alert('Falha ao salvar os lançamentos.');
+                } else {
+                    alert(`${newActivitiesPayload.length} lançamento(s) salvo(s) com sucesso!`);
+                    lancamentosContainer.innerHTML = '';
+                    createLancamentoBlock();
+                    await fetchActivities(); // Re-busca todos os dados do banco
+                }
             });
             
             const handleDatePresetChange = () => {
@@ -876,10 +896,13 @@
             });
 
             // --- Renderização Inicial ---
-            createLancamentoBlock();
-            renderTable();
-            populateUserFilter();
-            handleDatePresetChange();
+            async function initializeApp() {
+                createLancamentoBlock();
+                await fetchActivities();
+                handleDatePresetChange();
+            }
+
+            initializeApp();
         });
     </script>
 
